@@ -525,13 +525,13 @@
 
         // --- PASTE YOUR FIREBASE CONFIG OBJECT HERE ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
-            authDomain: "project-amplify-f3d8b.firebaseapp.com",
-            projectId: "project-amplify-f3d8b",
-            storageBucket: "project-amplify-f3d8b.firebasestorage.app",
-            messagingSenderId: "944323887163",
-            appId:  "1:944323887163:web:dca950ea7032ae776adc1e"
-        };
+           apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
+           authDomain: "project-amplify-f3d8b.firebaseapp.com",
+           projectId: "project-amplify-f3d8b",
+           storageBucket: "project-amplify-f3d8b.firebasestorage.app",
+           messagingSenderId: "944323887163",
+           appId: "1:944323887163:web:dca950ea7032ae776adc1e"
+       };
         
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -632,7 +632,30 @@
         });
 
         async function displayHistory() {
-            // ... (existing function)
+            const user = auth.currentUser;
+            if (!user) return;
+            historyList.innerHTML = 'Loading history...';
+            historyModal.style.display = 'flex';
+            const postsRef = collection(db, 'users', user.uid, 'posts');
+            const q = query(postsRef, orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(q);
+            historyList.innerHTML = '';
+            if (querySnapshot.empty) {
+                historyList.innerHTML = '<p>You have no saved posts yet.</p>';
+            } else {
+                querySnapshot.forEach((doc) => {
+                    const post = doc.data();
+                    const itemElement = document.createElement('div');
+                    itemElement.classList.add('history-item');
+                    itemElement.innerHTML = `
+                        <div class="history-title">${post.title}</div>
+                        <div class="history-content">
+                            <p>${post.content}</p>
+                            <small>Generated on: ${post.createdAt ? post.createdAt.toDate().toLocaleString() : 'Just now'}</small>
+                        </div>`;
+                    historyList.appendChild(itemElement);
+                });
+            }
         }
         
         // --- Automation Logic with Premium Check ---
@@ -647,11 +670,55 @@
         closeAutomationBtn.addEventListener('click', () => automationModal.style.display = 'none');
         
         saveScheduleBtn.addEventListener('click', async () => {
-            // ... (existing function)
+            const user = auth.currentUser;
+            if (!user) return;
+            const topic = automationTopic.value.trim();
+            if (!topic) {
+                alert("Please enter a topic for your schedule.");
+                return;
+            }
+            const schedule = {
+                userId: user.uid,
+                topic: topic,
+                frequency: automationFrequency.value,
+                dayOfWeek: automationDay.value,
+                time: automationTime.value,
+                createdAt: serverTimestamp()
+            };
+            try {
+                await addDoc(collection(db, 'users', user.uid, 'schedules'), schedule);
+                automationTopic.value = ''; // Clear input
+                displaySchedules(); // Refresh the list
+            } catch (error) {
+                console.error("Error saving schedule: ", error);
+                alert("Could not save schedule. Please try again.");
+            }
         });
         
         async function displaySchedules() {
-            // ... (existing function)
+            const user = auth.currentUser;
+            if (!user) return;
+            scheduleList.innerHTML = 'Loading schedules...';
+            const schedulesRef = collection(db, 'users', user.uid, 'schedules');
+            const q = query(schedulesRef, orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(q);
+            scheduleList.innerHTML = '';
+            if (querySnapshot.empty) {
+                scheduleList.innerHTML = '<p>You have no active schedules.</p>';
+            } else {
+                querySnapshot.forEach((doc) => {
+                    const schedule = doc.data();
+                    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                    const itemElement = document.createElement('div');
+                    itemElement.classList.add('schedule-item');
+                    itemElement.innerHTML = `
+                        <div class="schedule-title">
+                            <strong>Topic:</strong> ${schedule.topic}<br>
+                            <small><strong>Schedule:</strong> Every ${dayNames[schedule.dayOfWeek]} at ${schedule.time}</small>
+                        </div>`;
+                    scheduleList.appendChild(itemElement);
+                });
+            }
         }
 
         // --- Razorpay Payment Logic ---
