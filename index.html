@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Amplify</title>
+    <!-- Razorpay Checkout Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         /* All CSS styles are here... */
         body {
@@ -29,7 +31,7 @@
             position: relative;
         }
         
-        #auth-modal, #history-modal, #automation-modal {
+        #auth-modal, #history-modal, #automation-modal, #about-modal, #premium-modal {
             display: none; /* Hidden by default */
             position: fixed;
             z-index: 1000;
@@ -42,21 +44,21 @@
             align-items: center;
             justify-content: center;
         }
-        #history-modal, #automation-modal {
+        #history-modal, #automation-modal, #about-modal, #premium-modal {
             align-items: flex-start;
             padding-top: 5vh;
         }
-        #auth-container, #history-container, #automation-container {
+        #auth-container, #history-container, #automation-container, #about-container, #premium-container {
             background-color: #fff;
             padding: 2rem;
             border-radius: 6px;
             width: 90%;
-            max-width: 400px;
+            max-width: 450px;
             text-align: center;
             animation: slideIn 0.3s ease-out;
             position: relative;
         }
-        #history-container, #automation-container {
+        #history-container, #automation-container, #about-container {
             max-width: 600px;
             max-height: 80vh;
             overflow-y: auto;
@@ -132,6 +134,14 @@
             font-weight: bold;
             color: #050505;
         }
+        #user-badge {
+            background-color: #0a66c2;
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            margin-left: 1rem;
+        }
         #signOutBtn {
             background: none;
             border: 1px solid #0a66c2;
@@ -151,7 +161,7 @@
             margin-left: 1rem;
         }
         
-        #closeHistoryBtn, #closeAutomationBtn {
+        #closeHistoryBtn, #closeAutomationBtn, #closeAboutBtn, #closePremiumBtn {
             position: absolute;
             top: 1rem;
             right: 1rem;
@@ -333,7 +343,10 @@
 
     <div class="app-container">
         <div id="user-status">
-            <span id="user-email"></span>
+            <div>
+                <span id="user-email"></span>
+                <span id="user-badge"></span>
+            </div>
             <div>
                 <button id="automationBtn">Automation</button>
                 <button id="historyBtn">History</button>
@@ -371,7 +384,7 @@
         <footer class="app-footer">
             <p>&copy; 2025 Project Amplify. All Rights Reserved.</p>
             <p>
-                <a href="#">About</a> |
+                <a href="#" id="aboutLink">About</a> |
                 <a href="#">Terms of Service</a> |
                 <a href="mailto:contact@projectamplify.com">Contact Us</a>
             </p>
@@ -451,6 +464,39 @@
             <div id="schedule-list"></div>
         </div>
     </div>
+
+    <!-- ABOUT MODAL -->
+    <div id="about-modal">
+        <div id="about-container">
+            <button id="closeAboutBtn">&times;</button>
+            <h2>About Project Amplify</h2>
+            <p>Project Amplify is an AI-powered tool designed to help professionals, creators, and businesses enhance their LinkedIn presence effortlessly.</p>
+            
+            <h3 style="margin-top: 2rem;">Our Business Model</h3>
+            <p>We operate on a freemium model to provide value to everyone.</p>
+            
+            <div style="text-align: left; margin-top: 1rem;">
+                <p><strong>Free Tier:</strong><br>
+                All users can sign up and use our core AI post generator to create high-quality LinkedIn posts from their ideas manually.</p>
+                
+                <p><strong>Premium Tier:</strong><br>
+                For users who want to save time and put their content strategy on autopilot, we offer a premium subscription. This unlocks our powerful Automation feature, allowing you to schedule posts on various topics to be generated and saved to your history automatically.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PREMIUM MODAL (PAYWALL) -->
+    <div id="premium-modal">
+        <div id="premium-container">
+            <button id="closePremiumBtn">&times;</button>
+            <h2>Unlock Automation</h2>
+            <p>Go premium to put your content on autopilot and save hours every week.</p>
+            <div style="margin: 2rem 0; font-size: 2.5rem; font-weight: bold; color: #0a66c2;">
+                ₹299 <span style="font-size: 1rem; font-weight: normal;">/ month</span>
+            </div>
+            <button id="subscribeBtn" class="generate-button">Subscribe Now</button>
+        </div>
+    </div>
     
 
     <!-- ========= FIREBASE SECTION ========= -->
@@ -472,22 +518,27 @@
             query,
             getDocs,
             serverTimestamp,
-            orderBy
+            orderBy,
+            doc,
+            getDoc
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
+        // --- PASTE YOUR FIREBASE CONFIG OBJECT HERE ---
         const firebaseConfig = {
             apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
             authDomain: "project-amplify-f3d8b.firebaseapp.com",
             projectId: "project-amplify-f3d8b",
             storageBucket: "project-amplify-f3d8b.firebasestorage.app",
             messagingSenderId: "944323887163",
-            appId: "1:944323887163:web:dca950ea7032ae776adc1e"
+            appId:  "1:944323887163:web:dca950ea7032ae776adc1e"
         };
         
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        
+        let isPremiumUser = false; // Global flag for user status
         
         // --- UI Element References ---
         const authModal = document.getElementById('auth-modal');
@@ -519,15 +570,39 @@
         const automationTime = document.getElementById('automationTime');
         const scheduleList = document.getElementById('schedule-list');
 
-        // --- Core Auth Logic ---
-        onAuthStateChanged(auth, (user) => {
+        // About Modal Elements
+        const aboutLink = document.getElementById('aboutLink');
+        const aboutModal = document.getElementById('about-modal');
+        const closeAboutBtn = document.getElementById('closeAboutBtn');
+
+        // Premium Modal Elements
+        const userBadge = document.getElementById('user-badge');
+        const premiumModal = document.getElementById('premium-modal');
+        const closePremiumBtn = document.getElementById('closePremiumBtn');
+        const subscribeBtn = document.getElementById('subscribeBtn');
+
+        // --- Core Auth Logic with Premium Check ---
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 authModal.style.display = 'none'; 
                 userStatusDiv.style.display = 'flex'; 
                 userEmailSpan.innerText = user.displayName || user.email;
                 userNameDisplay.innerText = user.displayName || user.email;
+
+                // Check for premium status
+                const userRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(userRef);
+                if (docSnap.exists() && docSnap.data().isPremium) {
+                    isPremiumUser = true;
+                    userBadge.innerText = "Premium";
+                    userBadge.style.display = 'inline-block';
+                } else {
+                    isPremiumUser = false;
+                    userBadge.style.display = 'none';
+                }
             } else {
                 userStatusDiv.style.display = 'none'; 
+                isPremiumUser = false;
             }
         });
         
@@ -536,8 +611,17 @@
             if (event.target == authModal) authModal.style.display = "none";
             if (event.target == historyModal) historyModal.style.display = "none";
             if (event.target == automationModal) automationModal.style.display = "none";
+            if (event.target == aboutModal) aboutModal.style.display = "none";
+            if (event.target == premiumModal) premiumModal.style.display = "none";
         });
         
+        aboutLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            aboutModal.style.display = 'flex';
+        });
+        closeAboutBtn.addEventListener('click', () => aboutModal.style.display = 'none');
+        closePremiumBtn.addEventListener('click', () => premiumModal.style.display = 'none');
+
         // --- History Logic ---
         historyBtn.addEventListener('click', () => displayHistory());
         closeHistoryBtn.addEventListener('click', () => historyModal.style.display = 'none');
@@ -548,90 +632,72 @@
         });
 
         async function displayHistory() {
-            const user = auth.currentUser;
-            if (!user) return;
-            historyList.innerHTML = 'Loading history...';
-            historyModal.style.display = 'flex';
-            const postsRef = collection(db, 'users', user.uid, 'posts');
-            const q = query(postsRef, orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            historyList.innerHTML = '';
-            if (querySnapshot.empty) {
-                historyList.innerHTML = '<p>You have no saved posts yet.</p>';
-            } else {
-                querySnapshot.forEach((doc) => {
-                    const post = doc.data();
-                    const itemElement = document.createElement('div');
-                    itemElement.classList.add('history-item');
-                    itemElement.innerHTML = `
-                        <div class="history-title">${post.title}</div>
-                        <div class="history-content">
-                            <p>${post.content}</p>
-                            <small>Generated on: ${post.createdAt ? post.createdAt.toDate().toLocaleString() : 'Just now'}</small>
-                        </div>`;
-                    historyList.appendChild(itemElement);
-                });
-            }
+            // ... (existing function)
         }
         
-        // --- Automation Logic ---
+        // --- Automation Logic with Premium Check ---
         automationBtn.addEventListener('click', () => {
-            automationModal.style.display = 'flex';
-            displaySchedules();
+            if (isPremiumUser) {
+                automationModal.style.display = 'flex';
+                displaySchedules();
+            } else {
+                premiumModal.style.display = 'flex';
+            }
         });
         closeAutomationBtn.addEventListener('click', () => automationModal.style.display = 'none');
         
         saveScheduleBtn.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-            const topic = automationTopic.value.trim();
-            if (!topic) {
-                alert("Please enter a topic for your schedule.");
-                return;
-            }
-            const schedule = {
-                userId: user.uid,
-                topic: topic,
-                frequency: automationFrequency.value,
-                dayOfWeek: automationDay.value,
-                time: automationTime.value,
-                createdAt: serverTimestamp()
-            };
-            try {
-                await addDoc(collection(db, 'users', user.uid, 'schedules'), schedule);
-                automationTopic.value = ''; // Clear input
-                displaySchedules(); // Refresh the list
-            } catch (error) {
-                console.error("Error saving schedule: ", error);
-                alert("Could not save schedule. Please try again.");
-            }
+            // ... (existing function)
         });
         
         async function displaySchedules() {
-            const user = auth.currentUser;
-            if (!user) return;
-            scheduleList.innerHTML = 'Loading schedules...';
-            const schedulesRef = collection(db, 'users', user.uid, 'schedules');
-            const q = query(schedulesRef, orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            scheduleList.innerHTML = '';
-            if (querySnapshot.empty) {
-                scheduleList.innerHTML = '<p>You have no active schedules.</p>';
-            } else {
-                querySnapshot.forEach((doc) => {
-                    const schedule = doc.data();
-                    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                    const itemElement = document.createElement('div');
-                    itemElement.classList.add('schedule-item');
-                    itemElement.innerHTML = `
-                        <div class="schedule-title">
-                            <strong>Topic:</strong> ${schedule.topic}<br>
-                            <small><strong>Schedule:</strong> Every ${dayNames[schedule.dayOfWeek]} at ${schedule.time}</small>
-                        </div>`;
-                    scheduleList.appendChild(itemElement);
-                });
-            }
+            // ... (existing function)
         }
+
+        // --- Razorpay Payment Logic ---
+        subscribeBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) {
+                alert("Please log in to subscribe.");
+                return;
+            }
+            const orderResponse = await fetch('/api/create-order', { method: 'POST' });
+            const orderData = await orderResponse.json();
+            const options = {
+                key: "rzp_test_RV76TlaBfMsY85",
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "Project Amplify Premium",
+                description: "Monthly Subscription",
+                order_id: orderData.id,
+                handler: async function (response) {
+                    const verificationResponse = await fetch('/api/verify-payment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            order_id: orderData.id,
+                            razorpay_signature: response.razorpay_signature,
+                            userId: user.uid
+                        })
+                    });
+                    const verificationData = await verificationResponse.json();
+                    if (verificationData.msg === "Payment verified successfully") {
+                        alert("Payment successful! You are now a premium member.");
+                        premiumModal.style.display = 'none';
+                        isPremiumUser = true;
+                        userBadge.innerText = "Premium";
+                        userBadge.style.display = 'inline-block';
+                    } else {
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                prefill: { name: user.displayName || "", email: user.email },
+                theme: { color: "#0a66c2" }
+            };
+            const rzp1 = new Razorpay(options);
+            rzp1.open();
+        });
         
         // --- Authentication Functions ---
         signUpBtn.addEventListener('click', async () => {
@@ -640,38 +706,26 @@
             authError.innerText = '';
             try {
                 await createUserWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                authError.innerText = error.message;
-            }
+            } catch (error) { authError.innerText = error.message; }
         });
-
         loginBtn.addEventListener('click', async () => {
             const email = emailInput.value;
             const password = passwordInput.value;
             authError.innerText = '';
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                authError.innerText = error.message;
-            }
+            } catch (error) { authError.innerText = error.message; }
         });
-        
         googleSignInBtn.addEventListener('click', async () => {
             const provider = new GoogleAuthProvider();
             authError.innerText = '';
             try {
                 await signInWithPopup(auth, provider);
-            } catch (error) {
-                authError.innerText = error.message;
-            }
+            } catch (error) { authError.innerText = error.message; }
         });
-
         signOutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-            } catch (error) {
-                console.error('Sign out error:', error.message);
-            }
+            try { await signOut(auth); } 
+            catch (error) { console.error('Sign out error:', error.message); }
         });
 
         window.firebaseServices = { auth, db, serverTimestamp, collection, addDoc };
@@ -684,7 +738,6 @@
         const postContent = document.getElementById('postContent');
         const retryBtn = document.getElementById('retryBtn');
         const authModalForGenerator = document.getElementById('auth-modal');
-        
         const SECURE_API_URL = '/api/generate';
 
         async function generatePost() {
@@ -693,37 +746,29 @@
                 authModalForGenerator.style.display = 'flex'; 
                 return; 
             }
-
             const userIdea = ideaInput.value;
-
             if (userIdea.trim() === '') {
                 previewSection.style.display = 'block';
                 postContent.innerText = "Please enter an idea first!";
                 return;
             }
-            
             previewSection.style.display = 'block';
             postContent.innerText = "Generating your post... The AI is thinking! 🤔";
             generateBtn.disabled = true;
             generateBtn.innerText = "Generating...";
             retryBtn.disabled = true;
-
             try {
                 const response = await fetch(SECURE_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idea: userIdea })
                 });
-
                 const data = await response.json();
-
                 if (!response.ok) {
                     throw new Error(data.message || `Server error! status: ${response.status}`);
                 }
-                
                 const generatedText = data.post;
                 postContent.innerText = generatedText;
-
                 const user = auth.currentUser;
                 const postTitle = userIdea.substring(0, 60) + (userIdea.length > 60 ? '...' : '');
                 await addDoc(collection(db, 'users', user.uid, 'posts'), {
@@ -734,7 +779,6 @@
                     createdAt: serverTimestamp()
                 });
                 console.log("Post saved to history with a title!");
-
             } catch (error) {
                 console.error("--- DEBUGGING INFO ---", error);
                 postContent.innerText = `Oops! Something went wrong. ${error.message}`;
@@ -744,7 +788,6 @@
                 retryBtn.disabled = false;
             }
         }
-
         generateBtn.addEventListener('click', generatePost);
         retryBtn.addEventListener('click', generatePost);
     </script>
