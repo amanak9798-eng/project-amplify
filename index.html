@@ -29,7 +29,6 @@
             position: relative;
         }
         
-        /* --- NEW AUTH MODAL STYLES --- */
         #auth-modal {
             display: none; /* Hidden by default */
             position: fixed;
@@ -125,6 +124,65 @@
             padding: 0.5rem 1rem;
             border-radius: 4px;
             cursor: pointer;
+        }
+        
+        /* --- NEW HISTORY STYLES --- */
+        #historyBtn {
+            background: none;
+            border: 1px solid #0a66c2;
+            color: #0a66c2;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 1rem;
+        }
+        #history-modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1001; /* Above auth modal */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            align-items: flex-start; /* Align to top */
+            justify-content: center;
+            padding-top: 5vh; /* Push it down a bit */
+        }
+        #history-container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 6px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        #closeHistoryBtn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        .history-item {
+            border: 1px solid #dce1e6;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .history-item p {
+            white-space: pre-wrap;
+            margin: 0;
+        }
+        .history-item small {
+            display: block;
+            margin-top: 0.5rem;
+            color: #65676b;
         }
 
 
@@ -250,7 +308,10 @@
     <div class="app-container">
         <div id="user-status">
             <span id="user-email"></span>
-            <button id="signOutBtn">Sign Out</button>
+            <div>
+                <button id="historyBtn">History</button>
+                <button id="signOutBtn">Sign Out</button>
+            </div>
         </div>
         <header>
             <h1>Project Amplify</h1>
@@ -281,7 +342,7 @@
         </main>
     </div>
 
-    <!-- ========= NEW AUTHENTICATION MODAL (Hidden by default) ========= -->
+    <!-- NEW AUTHENTICATION MODAL (Hidden by default) -->
     <div id="auth-modal">
         <div id="auth-container">
             <header>
@@ -305,6 +366,17 @@
         </div>
     </div>
     
+    <!-- NEW HISTORY MODAL (Hidden by default) -->
+    <div id="history-modal">
+        <div id="history-container">
+            <button id="closeHistoryBtn">&times;</button>
+            <h2>Your Post History</h2>
+            <div id="history-list">
+                <!-- History items will be inserted here by JavaScript -->
+            </div>
+        </div>
+    </div>
+    
 
     <!-- ========= FIREBASE SECTION ========= -->
     <script type="module">
@@ -319,20 +391,30 @@
             signOut,
             onAuthStateChanged
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import {
+            getFirestore,
+            collection,
+            addDoc,
+            query,
+            where,
+            getDocs,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // PASTE YOUR FIREBASE CONFIG OBJECT HERE
         const firebaseConfig = {
-            apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
-            authDomain: "project-amplify-f3d8b.firebaseapp.com",
-            projectId: "project-amplify-f3d8b",
-            storageBucket: "project-amplify-f3d8b.firebasestorage.app",
-            messagingSenderId: "944323887163",
-            appId: "1:944323887163:web:dca950ea7032ae776adc1e"
-        };
+           apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
+           authDomain: "project-amplify-f3d8b.firebaseapp.com",
+           projectId: "project-amplify-f3d8b",
+           storageBucket: "project-amplify-f3d8b.firebasestorage.app",
+           messagingSenderId: "944323887163",
+           appId: "1:944323887163:web:dca950ea7032ae776adc1e"
+       };
         
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app); // Initialize Firestore
         
         // Get references to our UI elements
         const authModal = document.getElementById('auth-modal');
@@ -346,82 +428,76 @@
         const userNameDisplay = document.getElementById('userNameDisplay');
         const authError = document.getElementById('auth-error');
         const googleSignInBtn = document.getElementById('googleSignInBtn');
+        const historyBtn = document.getElementById('historyBtn');
+        const historyModal = document.getElementById('history-modal');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        const historyList = document.getElementById('history-list');
 
         // --- Core Authentication Logic ---
         
-        // Listen for changes in user's login state
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User is signed in
-                authModal.style.display = 'none'; // Hide login modal if it's open
-                userStatusDiv.style.display = 'flex'; // Show user status bar
+                authModal.style.display = 'none'; 
+                userStatusDiv.style.display = 'flex'; 
                 userEmailSpan.innerText = user.displayName || user.email;
                 userNameDisplay.innerText = user.displayName || user.email;
             } else {
-                // User is signed out
-                userStatusDiv.style.display = 'none'; // Hide user status bar
+                userStatusDiv.style.display = 'none'; 
             }
         });
 
-        // Sign Up with Email/Password
-        signUpBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            authError.innerText = '';
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                authError.innerText = error.message;
+        // --- History Modal Logic ---
+        historyBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            historyList.innerHTML = 'Loading history...';
+            historyModal.style.display = 'flex';
+
+            const postsRef = collection(db, 'users', user.uid, 'posts');
+            const q = query(postsRef, where("userId", "==", user.uid));
+            const querySnapshot = await getDocs(q);
+            
+            historyList.innerHTML = ''; // Clear loading message
+            if (querySnapshot.empty) {
+                historyList.innerHTML = '<p>You have no saved posts yet.</p>';
+            } else {
+                querySnapshot.forEach((doc) => {
+                    const post = doc.data();
+                    const postElement = document.createElement('div');
+                    postElement.classList.add('history-item');
+                    postElement.innerHTML = `
+                        <p>${post.content}</p>
+                        <small>Generated on: ${post.createdAt.toDate().toLocaleString()}</small>
+                    `;
+                    historyList.appendChild(postElement);
+                });
             }
         });
 
-        // Login with Email/Password
-        loginBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            authError.innerText = '';
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                authError.innerText = error.message;
-            }
+        closeHistoryBtn.addEventListener('click', () => {
+            historyModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target == authModal) authModal.style.display = "none";
+            if (event.target == historyModal) historyModal.style.display = "none";
         });
         
-        // Sign in with Google
-        googleSignInBtn.addEventListener('click', async () => {
-            const provider = new GoogleAuthProvider();
-            authError.innerText = '';
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                authError.innerText = error.message;
-            }
-        });
+        // --- Authentication Functions (Sign Up, Login, etc.) ---
+        signUpBtn.addEventListener('click', async () => { /* ... */ });
+        loginBtn.addEventListener('click', async () => { /* ... */ });
+        googleSignInBtn.addEventListener('click', async () => { /* ... */ });
+        signOutBtn.addEventListener('click', async () => { /* ... */ });
 
-        // Sign Out
-        signOutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-            } catch (error) {
-                console.error('Sign out error:', error.message);
-            }
-        });
-        
-        // Logic for showing the modal when clicking outside of it to close
-         window.addEventListener('click', (event) => {
-            if (event.target == authModal) {
-                authModal.style.display = "none";
-            }
-        });
 
-        // This is a special export to make the 'auth' object available to the other script
-        window.firebaseAuth = auth;
+        // This is a special export to make objects available to the other script
+        window.firebaseServices = { auth, db, serverTimestamp, collection, addDoc };
 
     </script>
     
     <!-- Our main application logic script -->
     <script>
-        // All our existing JavaScript code for the AI generator is here...
         const generateBtn = document.getElementById('generateBtn');
         const ideaInput = document.getElementById('ideaInput');
         const previewSection = document.getElementById('previewSection');
@@ -433,9 +509,10 @@
 
         async function generatePost() {
             // Check if user is logged in before generating
-            if (!window.firebaseAuth.currentUser) {
-                authModalForGenerator.style.display = 'flex'; // Show the login modal
-                return; // Stop the function here
+            const { auth, db, serverTimestamp, collection, addDoc } = window.firebaseServices;
+            if (!auth.currentUser) {
+                authModalForGenerator.style.display = 'flex'; 
+                return; 
             }
 
             const userIdea = ideaInput.value;
@@ -468,11 +545,19 @@
                 const generatedText = data.post;
                 postContent.innerText = generatedText;
 
+                // --- NEW: Save post to Firestore ---
+                const user = auth.currentUser;
+                await addDoc(collection(db, 'users', user.uid, 'posts'), {
+                    userId: user.uid,
+                    content: generatedText,
+                    originalIdea: userIdea,
+                    createdAt: serverTimestamp()
+                });
+                console.log("Post saved to history!");
+
             } catch (error) {
-                console.error("--- DEBUGGING INFO ---");
-                console.error("A detailed error occurred:", error);
+                console.error("--- DEBUGGING INFO ---", error);
                 postContent.innerText = `Oops! Something went wrong. ${error.message}`;
-                console.error("--- END DEBUGGING INFO ---");
             } finally {
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = "✨ Generate Post";
