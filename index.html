@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Amplify</title>
     <style>
-        /* All the CSS styles from before are here... */
+        /* All CSS styles are here... */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f0f2f5;
@@ -26,7 +26,108 @@
             border-radius: 6px;
             padding: 2.5rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
+        
+        /* --- NEW AUTH MODAL STYLES --- */
+        #auth-modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        #auth-container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 6px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 0.8rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ccd0d5;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .auth-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .auth-buttons button {
+            flex-grow: 1;
+        }
+        #auth-error {
+            color: #d93025;
+            margin-top: 1rem;
+            min-height: 1.2em;
+        }
+        .google-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            width: 100%;
+            padding: 0.8rem;
+            background-color: #ffffff;
+            color: #333;
+            border: 1px solid #ccd0d5;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .google-btn:hover {
+            background-color: #f7f7f7;
+        }
+        .google-btn img {
+            width: 20px;
+            height: 20px;
+        }
+        .divider {
+            margin: 1.5rem 0;
+            color: #8a8d91;
+        }
+        #user-status {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #e7f3ff;
+            padding: 0.8rem 1.2rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+        #user-email {
+            font-weight: bold;
+            color: #050505;
+        }
+        #signOutBtn {
+            background: none;
+            border: 1px solid #0a66c2;
+            color: #0a66c2;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+
         header h1 {
             font-size: 2rem;
             color: #0a66c2;
@@ -145,12 +246,16 @@
 </head>
 <body>
 
+    <!-- This is the main app, now always visible -->
     <div class="app-container">
+        <div id="user-status">
+            <span id="user-email"></span>
+            <button id="signOutBtn">Sign Out</button>
+        </div>
         <header>
             <h1>Project Amplify</h1>
             <p>Turn your simple idea into a powerful LinkedIn post with AI.</p>
         </header>
-
         <main>
             <div class="input-area">
                 <textarea id="ideaInput" placeholder="Start with a simple idea... e.g., 'the impact of remote work on company culture in India'"></textarea>
@@ -161,7 +266,7 @@
                 <div class="linkedin-post-preview">
                     <div class="post-header">
                         <div class="avatar"></div>
-                        <div class="user-info">Your Name</div>
+                        <div class="user-info" id="userNameDisplay">Your Name</div>
                     </div>
                     <div class="post-content" id="postContent">
                         Your generated post will appear here...
@@ -176,21 +281,163 @@
         </main>
     </div>
 
-    <script>
-        // --- START OF SECURE JAVASCRIPT LOGIC ---
+    <!-- ========= NEW AUTHENTICATION MODAL (Hidden by default) ========= -->
+    <div id="auth-modal">
+        <div id="auth-container">
+            <header>
+                <h2>Create an Account to Continue</h2>
+                <p>Join for free to start generating AI-powered posts.</p>
+            </header>
+            <div class="auth-form">
+                <button id="googleSignInBtn" class="google-btn">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
+                    Sign in with Google
+                </button>
+                <p class="divider">or</p>
+                <input type="email" id="emailInput" placeholder="Email">
+                <input type="password" id="passwordInput" placeholder="Password">
+                <div class="auth-buttons">
+                    <button id="signUpBtn" class="generate-button">Sign Up</button>
+                    <button id="loginBtn" class="retry-btn">Log In</button>
+                </div>
+                <p id="auth-error"></p>
+            </div>
+        </div>
+    </div>
+    
 
+    <!-- ========= FIREBASE SECTION ========= -->
+    <script type="module">
+        // Import all necessary Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signOut,
+            onAuthStateChanged
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
+            authDomain: "project-amplify-f3d8b.firebaseapp.com",
+            projectId: "project-amplify-f3d8b",
+            storageBucket: "project-amplify-f3d8b.firebasestorage.app",
+            messagingSenderId: "944323887163",
+            appId: "1:944323887163:web:dca950ea7032ae776adc1e"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // Get references to our UI elements
+        const authModal = document.getElementById('auth-modal');
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const signUpBtn = document.getElementById('signUpBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const signOutBtn = document.getElementById('signOutBtn');
+        const userStatusDiv = document.getElementById('user-status');
+        const userEmailSpan = document.getElementById('user-email');
+        const userNameDisplay = document.getElementById('userNameDisplay');
+        const authError = document.getElementById('auth-error');
+        const googleSignInBtn = document.getElementById('googleSignInBtn');
+
+        // --- Core Authentication Logic ---
+        
+        // Listen for changes in user's login state
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                authModal.style.display = 'none'; // Hide login modal if it's open
+                userStatusDiv.style.display = 'flex'; // Show user status bar
+                userEmailSpan.innerText = user.displayName || user.email;
+                userNameDisplay.innerText = user.displayName || user.email;
+            } else {
+                // User is signed out
+                userStatusDiv.style.display = 'none'; // Hide user status bar
+            }
+        });
+
+        // Sign Up with Email/Password
+        signUpBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.innerText = '';
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+
+        // Login with Email/Password
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.innerText = '';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+        
+        // Sign in with Google
+        googleSignInBtn.addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            authError.innerText = '';
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+
+        // Sign Out
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Sign out error:', error.message);
+            }
+        });
+        
+        // Logic for showing the modal when clicking outside of it to close
+         window.addEventListener('click', (event) => {
+            if (event.target == authModal) {
+                authModal.style.display = "none";
+            }
+        });
+
+        // This is a special export to make the 'auth' object available to the other script
+        window.firebaseAuth = auth;
+
+    </script>
+    
+    <!-- Our main application logic script -->
+    <script>
+        // All our existing JavaScript code for the AI generator is here...
         const generateBtn = document.getElementById('generateBtn');
         const ideaInput = document.getElementById('ideaInput');
         const previewSection = document.getElementById('previewSection');
         const postContent = document.getElementById('postContent');
         const retryBtn = document.getElementById('retryBtn');
+        const authModalForGenerator = document.getElementById('auth-modal');
         
-        // The API Key is GONE. It's no longer stored in the browser.
-        
-        // This URL now points to our own secure backend function.
         const SECURE_API_URL = '/api/generate';
 
         async function generatePost() {
+            // Check if user is logged in before generating
+            if (!window.firebaseAuth.currentUser) {
+                authModalForGenerator.style.display = 'flex'; // Show the login modal
+                return; // Stop the function here
+            }
+
             const userIdea = ideaInput.value;
 
             if (userIdea.trim() === '') {
@@ -206,22 +453,18 @@
             retryBtn.disabled = true;
 
             try {
-                // We now call our own secure backend.
                 const response = await fetch(SECURE_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // We only need to send the user's idea.
                     body: JSON.stringify({ idea: userIdea })
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    // The error message now comes from our own server.
                     throw new Error(data.message || `Server error! status: ${response.status}`);
                 }
                 
-                // Our server sends back the generated text in a 'post' property.
                 const generatedText = data.post;
                 postContent.innerText = generatedText;
 
@@ -239,7 +482,6 @@
 
         generateBtn.addEventListener('click', generatePost);
         retryBtn.addEventListener('click', generatePost);
-        
     </script>
 
 </body>
