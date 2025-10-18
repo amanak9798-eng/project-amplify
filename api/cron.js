@@ -1,8 +1,9 @@
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // --- Helper function to call Gemini API ---
 async function generatePostFromTopic(topic) {
+    // ... (rest of the function is the same)
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
         throw new Error("Gemini API key is not configured.");
@@ -37,6 +38,12 @@ async function generatePostFromTopic(topic) {
 
 // --- Main Handler for the Cron Job ---
 export default async function handler(request, response) {
+    // --- NEW: Security Check ---
+    const authorization = request.headers.get('authorization');
+    if (authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+        return response.status(401).end('Unauthorized');
+    }
+
     console.log("Cron Job started...");
 
     try {
@@ -99,3 +106,4 @@ export default async function handler(request, response) {
         return response.status(500).json({ error: 'Internal Server Error' });
     }
 }
+
