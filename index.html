@@ -398,18 +398,19 @@
             query,
             where,
             getDocs,
-            serverTimestamp
+            serverTimestamp,
+            orderBy
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // PASTE YOUR FIREBASE CONFIG OBJECT HERE
         const firebaseConfig = {
-           apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
-           authDomain: "project-amplify-f3d8b.firebaseapp.com",
-           projectId: "project-amplify-f3d8b",
-           storageBucket: "project-amplify-f3d8b.firebasestorage.app",
-           messagingSenderId: "944323887163",
-           appId: "1:944323887163:web:dca950ea7032ae776adc1e"
-       };
+            apiKey: "AIzaSyBbR8i9p3OdSFqgFznTrcrSAdRoZd6JCyM",
+            authDomain: "project-amplify-f3d8b.firebaseapp.com",
+            projectId: "project-amplify-f3d8b",
+            storageBucket: "project-amplify-f3d8b.firebasestorage.app",
+            messagingSenderId: "944323887163",
+            appId: "1:944323887163:web:dca950ea7032ae776adc1e"
+        };
         
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -455,7 +456,7 @@
             historyModal.style.display = 'flex';
 
             const postsRef = collection(db, 'users', user.uid, 'posts');
-            const q = query(postsRef, where("userId", "==", user.uid));
+            const q = query(postsRef, orderBy("createdAt", "desc")); // Order by newest first
             const querySnapshot = await getDocs(q);
             
             historyList.innerHTML = ''; // Clear loading message
@@ -468,7 +469,7 @@
                     postElement.classList.add('history-item');
                     postElement.innerHTML = `
                         <p>${post.content}</p>
-                        <small>Generated on: ${post.createdAt.toDate().toLocaleString()}</small>
+                        <small>Generated on: ${post.createdAt ? post.createdAt.toDate().toLocaleString() : 'Just now'}</small>
                     `;
                     historyList.appendChild(postElement);
                 });
@@ -485,10 +486,45 @@
         });
         
         // --- Authentication Functions (Sign Up, Login, etc.) ---
-        signUpBtn.addEventListener('click', async () => { /* ... */ });
-        loginBtn.addEventListener('click', async () => { /* ... */ });
-        googleSignInBtn.addEventListener('click', async () => { /* ... */ });
-        signOutBtn.addEventListener('click', async () => { /* ... */ });
+        signUpBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.innerText = '';
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.innerText = '';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+        
+        googleSignInBtn.addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            authError.innerText = '';
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                authError.innerText = error.message;
+            }
+        });
+
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Sign out error:', error.message);
+            }
+        });
 
 
         // This is a special export to make objects available to the other script
