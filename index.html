@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AmplifyAI - LinkedIn Post Generator</title>
+    
+    <!-- THE FIX IS HERE: Added the required Razorpay script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
     <link rel="stylesheet" href="style.css">
     <script>
         tailwind.config = {
@@ -20,10 +24,9 @@
         }
     </script>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    
+<body>
     <!-- Navigation -->
-    <nav class="bg-white text-gray-800 shadow-sm py-3 px-6 flex justify-between items-center fixed w-full top-0 z-50">
+    <nav class="bg-white text-gray-800 shadow-sm py-3 px-6 md:px-12 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
         <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-full gradient-bg flex items-center justify-center">
                 <i data-feather="zap" class="text-white w-4 h-4"></i>
@@ -31,87 +34,142 @@
             <h1 class="text-xl font-bold text-primary">AmplifyAI</h1>
         </div>
         <div id="nav-actions" class="flex items-center space-x-4 relative">
-            <!-- This section will be dynamically updated by JavaScript -->
+            <!-- This will be populated by script.js -->
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="container mx-auto px-6 pt-24 pb-8">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-                <h1 id="welcome-message" class="text-3xl font-bold text-primary">Generate professional LinkedIn posts in seconds</h1>
-                <p id="welcome-subtitle" class="text-gray-600 mt-2">Let's create something amazing.</p>
-            </div>
-            <div id="history-button-container" class="mt-4 md:mt-0 hidden">
-                 <button id="historyBtn" class="flex items-center space-x-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition-colors">
-                    <i data-feather="clock" class="text-gray-600 w-4 h-4"></i>
-                    <span class="text-gray-700 font-semibold">View History</span>
-                </button>
+    <div class="pt-24">
+        <!-- Hero Section -->
+        <div class="container mx-auto px-6 py-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div>
+                    <h1 id="welcome-message" class="text-3xl font-bold text-gray-800">Generate professional LinkedIn posts in seconds</h1>
+                    <p id="welcome-subtitle" class="text-gray-600 mt-2">Sign up to get started.</p>
+                </div>
+                <div id="history-button-container" class="mt-4 md:mt-0" style="display: none;">
+                    <button id="historyBtn" class="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+                        <i data-feather="clock" class="text-gray-600 w-4 h-4"></i>
+                        <span class="text-gray-700 font-semibold">View History</span>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Main Chat Area -->
-    <div class="container mx-auto px-6 pb-12">
-        <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
-            <!-- Chat Messages -->
-            <div id="chat-container" class="chat-container overflow-y-auto p-6 space-y-6">
-                <!-- Chat messages will be dynamically inserted here -->
-            </div>
-            <!-- Input Area -->
-            <div class="border-t border-gray-200 p-6 bg-gray-50">
-                <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tone</label>
-                        <select id="postTone" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
-                            <option>Professional</option>
-                            <option>Friendly</option>
-                            <option>Inspirational</option>
-                            <option>Casual</option>
-                            <option>Educational</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Post Type</label>
-                        <select id="postType" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
-                            <option>Project Announcement</option>
-                            <option>Thought Leadership</option>
-                            <option>Career Update</option>
-                            <option>Industry Insight</option>
-                            <option>Event Promotion</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Length</label>
-                        <select id="postLength" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
-                            <option>Short (1-2 paragraphs)</option>
-                            <option>Medium (3-4 paragraphs)</option>
-                            <option>Long (5+ paragraphs)</option>
-                        </select>
-                    </div>
+        <!-- Main Chat Area -->
+        <div class="container mx-auto px-6 pb-12">
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border border-[#e2e2e2]">
+                <!-- Chat Messages -->
+                <div id="chat-container" class="chat-container overflow-y-auto p-6 space-y-4">
+                    <!-- Messages will be populated by script.js -->
                 </div>
-                <div class="flex space-x-3">
-                    <input id="ideaInput" type="text" placeholder="Describe what you want to post about..." class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                    <button id="generateBtn" class="gradient-bg text-white px-6 py-3 rounded-lg flex items-center justify-center space-x-2 hover:opacity-90 transition w-32">
-                        <span class="btn-text">Generate</span>
-                        <i data-feather="arrow-right" class="w-4 h-4"></i>
-                        <div class="spinner"></div>
-                    </button>
+                <!-- Input Area -->
+                <div class="border-t border-gray-200 p-6">
+                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tone</label>
+                            <select id="postTone" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <option>Professional</option>
+                                <option>Friendly</option>
+                                <option>Inspirational</option>
+                                <option>Casual</option>
+                                <option>Educational</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Post Type</label>
+                            <select id="postType" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <option>Project Announcement</option>
+                                <option>Thought Leadership</option>
+                                <option>Career Update</option>
+                                <option>Industry Insight</option>
+                                <option>Event Promotion</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Length</label>
+                            <select id="postLength" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <option>Short (1-2 paragraphs)</option>
+                                <option>Medium (3-4 paragraphs)</option>
+                                <option>Long (5+ paragraphs)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <input id="ideaInput" type="text" placeholder="Describe what you want to post about..." class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <button id="generateBtn" class="gradient-bg text-white px-6 py-3 rounded-lg flex items-center space-x-2 hover:opacity-90 transition disabled:opacity-50">
+                            <span class="btn-text">Generate</span>
+                            <i data-feather="arrow-right" class="w-4 h-4"></i>
+                            <div class="spinner"></div>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- MODALS (kept from our previous version, but now hidden) -->
-    <div id="auth-modal" class="modal"> <!-- All modals have this base class now -->
-         <div class="modal-content auth">
-            <button class="close-btn" data-modal="auth-modal">&times;</button>
+    <!-- Features Section -->
+    <div class="bg-[#f5f5f5] py-12">
+        <div class="container mx-auto px-6">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Why Choose AmplifyAI?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <div class="w-12 h-12 gradient-bg rounded-lg flex items-center justify-center mb-4">
+                        <i data-feather="zap" class="text-white w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Lightning Fast</h3>
+                    <p class="text-gray-600">Generate professional-quality posts in seconds, not hours.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <div class="w-12 h-12 gradient-bg rounded-lg flex items-center justify-center mb-4">
+                        <i data-feather="edit" class="text-white w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Tailored Content</h3>
+                    <p class="text-gray-600">Posts customized to your personal brand and audience.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <div class="w-12 h-12 gradient-bg rounded-lg flex items-center justify-center mb-4">
+                        <i data-feather="trending-up" class="text-white w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Engagement Optimized</h3>
+                    <p class="text-gray-600">Formatted for maximum likes, comments, and shares.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-primary text-white py-8">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-2 mb-4 md:mb-0">
+                    <div class="w-6 h-6 rounded-full gradient-bg flex items-center justify-center">
+                        <i data-feather="zap" class="text-white w-3 h-3"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-white">AmplifyAI</h2>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-white hover:text-white/80">Privacy</a>
+                    <a href="#" class="text-white hover:text-white/80">Terms</a>
+                    <a href="#" class="text-white hover:text-white/80">Contact</a>
+                </div>
+            </div>
+            <div class="mt-6 text-center text-sm text-white/80">
+                © 2025 AmplifyAI. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODALS -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content auth">
+            <button class="close-btn">&times;</button>
             <header>
-                <h2>Create an Account</h2>
-                <p>Join for free to start generating AI-powered posts.</p>
+                <h2 class="text-2xl font-bold mb-2">Create an Account to Continue</h2>
+                <p class="text-gray-600">Join for free to start generating AI-powered posts.</p>
             </header>
-            <div class="auth-form">
-                 <button id="googleSignInBtn" class="google-btn">
+            <div class="auth-form mt-6">
+                <button id="googleSignInBtn" class="google-btn">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
                     Sign in with Google
                 </button>
@@ -130,29 +188,55 @@
 
     <div id="history-modal" class="modal">
         <div class="modal-content">
-            <button class="close-btn" data-modal="history-modal">&times;</button>
-            <h2>Your Post History</h2>
+            <button class="close-btn">&times;</button>
+            <h2 class="text-2xl font-bold mb-4">Your Post History</h2>
             <div id="history-list"></div>
         </div>
     </div>
-
-    <div id="premium-modal" class="modal">
-        <div class="modal-content premium">
-            <button class="close-btn" data-modal="premium-modal">&times;</button>
-            <h2>Unlock Automation & More</h2>
-            <p>Go premium to unlock powerful features and save hours every week.</p>
-            <div style="margin: 2rem 0; font-size: 2.5rem; font-weight: bold; color: var(--primary-color);">
-                ₹299 <span style="font-size: 1rem; font-weight: normal;">/ month</span>
+    
+    <div id="automation-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn">&times;</button>
+            <h2 class="text-2xl font-bold">Automation</h2>
+            <p class="text-gray-600 mb-6">Set up a schedule to automatically generate posts on a topic.</p>
+            <div class="automation-form">
+                <h3 class="text-lg font-semibold mb-2">Create New Schedule</h3>
+                <input type="text" id="automationTopic" placeholder="Enter a topic (e.g., weekly AI news)">
+                <div class="time-selection">
+                    <select id="automationFrequency"><option value="weekly">Weekly</option></select>
+                    <select id="automationDay"><option value="1">on Monday</option><!-- other days --></select>
+                    <select id="automationTime"><option value="09:00">at 09:00 AM</option><!-- other times --></select>
+                </div>
+                <button id="saveScheduleBtn" class="generate-button" style="margin-top: 1rem;">Save Schedule</button>
             </div>
-            <button id="subscribeBtn" class="generate-button">Subscribe Now</button>
+            <hr class="my-8">
+            <h3 class="text-lg font-semibold mb-4">Your Active Schedules</h3>
+            <div id="schedule-list"></div>
         </div>
     </div>
     
+    <div id="premium-modal" class="modal">
+        <div class="modal-content premium">
+            <button class="close-btn">&times;</button>
+            <h2 class="text-2xl font-bold">Unlock Automation</h2>
+            <p class="text-gray-600 mt-2">Go premium to put your content on autopilot and save hours every week.</p>
+            <div class="my-8 text-5xl font-bold text-primary">
+                ₹299 <span class="text-lg font-normal text-gray-600">/ month</span>
+            </div>
+            <button id="subscribeBtn" class="generate-button w-full">Subscribe Now</button>
+        </div>
+    </div>
+
     <!-- Hidden input for Razorpay Key ID -->
     <input type="hidden" id="razorpay-key-id" value="rzp_test_RV76TlaBfMsY85">
 
-    <!-- Link to our new JavaScript file -->
-    <script src="script.js" type="module"></script>
+    <script type="module" src="script.js"></script>
+    <script>
+        // This is just for Feather Icons, all app logic is in script.js
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace();
+        });
+    </script>
 </body>
 </html>
 
