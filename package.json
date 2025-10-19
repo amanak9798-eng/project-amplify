@@ -1,3 +1,11 @@
 {
   "type": "module"
+
+}
+
+{
+  "type": "module",
+  "dependencies": {
+    "razorpay": "^2.9.2"
+  }
 }
