@@ -17,7 +17,7 @@ export default async function handler(request, response) {
         return response.status(401).send('Unauthorized: Invalid secret.');
     }
 
-    if (!amanak9798.admin) {
+    if (!email) {
         return response.status(400).send('Please provide an email address in the query.');
     }
 
@@ -39,3 +39,4 @@ export default async function handler(request, response) {
         return response.status(500).send('Error setting admin claim: ' + error.message);
     }
 }
+
