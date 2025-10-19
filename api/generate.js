@@ -1,12 +1,12 @@
-// This is the full code for your api/generate.js file
-
 export default async function handler(request, response) {
     if (request.method !== 'POST') {
         return response.status(405).send('Method Not Allowed');
     }
 
     try {
-        const { idea, tone, type, length } = await request.json();
+        // THE FIX IS HERE: Changed request.json() to request.body
+        const { idea, tone, type, length } = request.body;
+
         if (!idea) {
             return response.status(400).json({ message: 'Idea is required.' });
         }
@@ -50,6 +50,11 @@ export default async function handler(request, response) {
         }
 
         const data = await apiResponse.json();
+        
+        if (!data.candidates || !data.candidates[0].content || !data.candidates[0].content.parts[0]) {
+             throw new Error("Received an unexpected response format from the AI.");
+        }
+
         const postText = data.candidates[0].content.parts[0].text;
         
         response.status(200).json({ post: postText });
