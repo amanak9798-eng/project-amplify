@@ -461,6 +461,7 @@
                     Sign in with Google
                 </button>
                 <p class="divider">or</p>
+                <input type="text" id="nameInput" placeholder="Your Name (for sign up)">
                 <input type="email" id="emailInput" placeholder="Email">
                 <input type="password" id="passwordInput" placeholder="Password">
                 <div class="auth-buttons">
@@ -532,7 +533,7 @@
     <!-- ========= FIREBASE SCRIPT (MODULE) ========= -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, getDocs, serverTimestamp, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- 1. PASTE YOUR FIREBASE CONFIG OBJECT HERE ---
@@ -560,6 +561,7 @@
         const automationModal = document.getElementById('automation-modal');
         const premiumModal = document.getElementById('premium-modal');
 
+        const nameInput = document.getElementById('nameInput');
         const emailInput = document.getElementById('emailInput');
         const passwordInput = document.getElementById('passwordInput');
         const signUpBtn = document.getElementById('signUpBtn');
@@ -603,6 +605,8 @@
                 }
             } else {
                 ctaButton.innerText = "Sign Up";
+                dropdownUsername.innerText = '';
+                dropdownStatus.innerText = '';
                 isPremiumUser = false;
                 userBadge.style.display = 'none';
             }
@@ -639,18 +643,36 @@
         // --- Authentication Functions ---
         signUpBtn.addEventListener('click', async () => {
             authError.innerText = '';
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!name || !email || !password) {
+                authError.innerText = "Please fill in all fields.";
+                return;
+            }
+
             try {
-                await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName: name });
                 authModal.style.display = 'none';
             } catch (error) { authError.innerText = error.message; }
         });
+
         loginBtn.addEventListener('click', async () => {
             authError.innerText = '';
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+             if (!email || !password) {
+                authError.innerText = "Please fill in all fields.";
+                return;
+            }
             try {
-                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+                await signInWithEmailAndPassword(auth, email, password);
                 authModal.style.display = 'none';
             } catch (error) { authError.innerText = error.message; }
         });
+
         googleSignInBtn.addEventListener('click', async () => {
             authError.innerText = '';
             try {
