@@ -1,9 +1,8 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// --- Helper function to call Gemini API ---
+// --- Helper function to call Gemini API (no changes here) ---
 async function generatePostFromTopic(topic) {
-    // ... (rest of the function is the same)
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
         throw new Error("Gemini API key is not configured.");
@@ -38,7 +37,6 @@ async function generatePostFromTopic(topic) {
 
 // --- Main Handler for the Cron Job ---
 export default async function handler(request, response) {
-    // --- NEW: Security Check ---
     const authorization = request.headers.get('authorization');
     if (authorization !== `Bearer ${process.env.CRON_SECRET}`) {
         return response.status(401).end('Unauthorized');
@@ -47,54 +45,76 @@ export default async function handler(request, response) {
     console.log("Cron Job started...");
 
     try {
-        // Securely initialize Firebase Admin SDK using Vercel Environment Variables
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-
         if (!getApps().length) {
-            initializeApp({
-                credential: cert(serviceAccount)
-            });
+            initializeApp({ credential: cert(serviceAccount) });
         }
         
         const db = getFirestore();
         const now = new Date();
-        const currentDay = now.getDay(); // Sunday = 0, Monday = 1, ...
-        const currentHour = now.getHours(); // 0-23
+        const currentDay = now.getDay();
+        const currentHour = now.getHours();
 
         console.log(`Current time check: Day ${currentDay}, Hour ${currentHour}`);
 
-        // Get all schedules
         const schedulesSnapshot = await db.collectionGroup('schedules').get();
         if (schedulesSnapshot.empty) {
-            console.log("No schedules found.");
             return response.status(200).send("OK: No schedules found.");
         }
 
         console.log(`Found ${schedulesSnapshot.docs.length} total schedules. Checking for due posts...`);
 
-        // Process each schedule
         for (const doc of schedulesSnapshot.docs) {
             const schedule = doc.data();
             const scheduleTime = parseInt(schedule.time.split(':')[0]);
 
-            // Check if the schedule is due
             if (schedule.dayOfWeek == currentDay && scheduleTime == currentHour) {
                 console.log(`Processing schedule for user ${schedule.userId} on topic: ${schedule.topic}`);
                 
-                // 1. Generate the post using Gemini
-                const postContent = await generatePostFromTopic(schedule.topic);
+                // --- NEW LOGIC: The "Gatekeeper" Check ---
+                const userRef = db.collection('users').doc(schedule.userId);
+                const userDoc = await userRef.get();
 
-                // 2. Save the new post to the user's history
-                const postTitle = schedule.topic.substring(0, 60) + (schedule.topic.length > 60 ? '...' : '');
-                const postsRef = db.collection('users').doc(schedule.userId).collection('posts');
-                await postsRef.add({
-                    userId: schedule.userId,
-                    title: `Automated Post: ${postTitle}`,
-                    content: postContent,
-                    originalIdea: `Automated from schedule: "${schedule.topic}"`,
-                    createdAt: new Date()
-                });
-                console.log(`Successfully generated and saved post for user ${schedule.userId}`);
+                if (!userDoc.exists) {
+                    console.log(`User ${schedule.userId} not found. Skipping.`);
+                    continue; // Skip to the next schedule
+                }
+
+                const userData = userDoc.data();
+                const isPremium = userData.isPremium === true;
+                const hasFreeCredits = (userData.freeCredits || 0) > 0;
+
+                if (isPremium || hasFreeCredits) {
+                    // User is authorized to generate a post.
+                    console.log(`User ${schedule.userId} is authorized. Premium: ${isPremium}, Credits: ${userData.freeCredits || 0}`);
+
+                    // 1. Generate the post
+                    const postContent = await generatePostFromTopic(schedule.topic);
+
+                    // 2. Save the new post to the user's history
+                    const postTitle = schedule.topic.substring(0, 60) + (schedule.topic.length > 60 ? '...' : '');
+                    const postsRef = db.collection('users').doc(schedule.userId).collection('posts');
+                    await postsRef.add({
+                        userId: schedule.userId,
+                        title: `Automated Post: ${postTitle}`,
+                        content: postContent,
+                        originalIdea: `Automated from schedule: "${schedule.topic}"`,
+                        createdAt: new Date()
+                    });
+                    console.log(`Successfully generated and saved post for user ${schedule.userId}`);
+
+                    // 3. If they are not premium, use up one free credit
+                    if (!isPremium) {
+                        await userRef.update({
+                            freeCredits: FieldValue.increment(-1)
+                        });
+                        console.log(`Decremented free credits for user ${schedule.userId}`);
+                    }
+
+                } else {
+                    // User is not authorized.
+                    console.log(`User ${schedule.userId} has no credits and is not premium. Skipping schedule.`);
+                }
             }
         }
 
